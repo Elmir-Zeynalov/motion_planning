@@ -1,4 +1,4 @@
-function [path, goal_reached, cost, EXPAND] = lazy_theta_star(map, start, goal)
+function result = lazy_theta_star(map, start, goal)
 % @file: lazy_theta_star.m
 % @breif: Lazy Theta* motion planning
 % @paper: Lazy Theta*: Any-Angle Path Planning and Path Length Analysis in 3D
@@ -15,9 +15,12 @@ function [path, goal_reached, cost, EXPAND] = lazy_theta_star(map, start, goal)
 OPEN = [];
 CLOSED = [];
 EXPAND = [];
-
 cost = 0;
 goal_reached = false;
+nodes_explored = 0;  % Counter for nodes explored
+neighbors_visited = 0;  % Counter for neighbors visited
+memory_usage = 0;  % Initialize memory usage
+
 motion = [-1, -1, sqrt(2); ...
     0, -1, 1; ...
     1, -1, sqrt(2); ...
@@ -31,6 +34,13 @@ motion_num = size(motion, 1);
 
 node_s = [start, 0, h(start, goal), start];
 OPEN = [OPEN; node_s];
+
+% Measure initial memory usage
+initial_mem = whos('OPEN', 'CLOSED', 'map');
+memory_usage_initial = sum([initial_mem.bytes]);
+
+% Start timing the computation
+tic;
 
 while ~isempty(OPEN)
     % pop
@@ -84,6 +94,7 @@ while ~isempty(OPEN)
     end
     % explore neighbors
     for i = 1:motion_num
+        neighbors_visited = neighbors_visited + 1;  % Track neighbor visits
         % path 1
         node_n = [
             cur_node(1) + motion(i, 1), ...
@@ -118,10 +129,55 @@ while ~isempty(OPEN)
         OPEN = [OPEN; node_n];
     end
     CLOSED = [cur_node; CLOSED];
+    nodes_explored = nodes_explored + 1;  % Track nodes explored
 end
+
+
+% Track peak memory usage dynamically
+peak_memory_usage = track_peak_memory(OPEN, CLOSED, map);
+
+% Stop timing the computation
+computation_time = toc;
+
+% Measure final memory usage
+final_mem = whos('OPEN', 'CLOSED', 'map');
+memory_usage_final = sum([final_mem.bytes]);
+memory_usage = memory_usage_final;  % Estimate total memory usage
 
 % extract path
 path = extract_path(CLOSED, start);
+
+% Calculate path length as the number of steps
+path_length_steps = calculate_blocks_traversed(path);
+
+% Calculate Euclidean path length (optional)
+path_length_euclidean = 0;
+for i = 2:size(path, 1)
+    dx = abs(path(i, 1) - path(i-1, 1));
+    dy = abs(path(i, 2) - path(i-1, 2));
+    if dx == 1 && dy == 1
+        path_length_euclidean = path_length_euclidean + sqrt(2);
+    else
+        path_length_euclidean = path_length_euclidean + 1;
+    end
+end
+path_length_euclidean = round(path_length_euclidean, 3);  % Round for precision
+
+% Create a struct to return the results
+result.path = path;
+result.flag = goal_reached;
+result.cost = cost;
+result.expand = EXPAND;
+result.computation_time = computation_time;
+result.path_length_steps = path_length_steps;
+result.path_length_euclidean = path_length_euclidean;
+result.nodes_explored = nodes_explored;
+result.neighbors_visited = neighbors_visited;
+result.memory_usage_initial = memory_usage_initial;
+result.memory_usage_final = memory_usage_final;
+result.memory_usage = memory_usage;
+result.peak_memory_usage = peak_memory_usage;
+
 end
 
 %%
