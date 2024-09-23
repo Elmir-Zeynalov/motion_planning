@@ -31,11 +31,11 @@ function result = dijkstra(map, start, goal)
     motion_num = size(motion, 1);
     node_s = [start, 0, 0, start];
     OPEN = [OPEN; node_s];
-    
-     % Measure initial memory usage
-    initial_mem = whos('OPEN', 'CLOSED', 'map');
-    memory_usage_initial = sum([initial_mem.bytes]);
 
+     % Reset peak memory tracking at the start of each run
+    track_peak_memory([], [], [], [], true);  % Reset the persistent memory tracking
+
+     % Measure initial memory usage
     % Start timing the computation
     tic;
     
@@ -92,16 +92,14 @@ function result = dijkstra(map, start, goal)
         end
 
         % Track peak memory usage dynamically
-        peak_memory_usage = track_peak_memory(OPEN, CLOSED, map);
+        %peak_memory_usage = track_peak_memory(OPEN, CLOSED, map);
+        peak_memory_usage = track_peak_memory(OPEN, CLOSED, map, EXPAND, false);
     end
 
     % Stop timing the computation
     computation_time = toc;  % This gives the time in seconds
     % Measure final memory usage
-    final_mem = whos('OPEN', 'CLOSED', 'map');
-    memory_usage_final = sum([final_mem.bytes]);
-    memory_usage = memory_usage_final;  % Estimate total memory usage
-
+   
     % Extract path
     path = extract_path(CLOSED, start);
 
@@ -135,9 +133,9 @@ result.path_length_steps = path_length_steps;
 result.path_length_euclidean = path_length_euclidean;
 result.nodes_explored = nodes_explored;
 result.neighbors_visited = neighbors_visited;
-result.memory_usage_initial = memory_usage_initial;
-result.memory_usage_final = memory_usage_final;
-result.memory_usage = memory_usage;
+result.memory_usage_initial = 0;
+result.memory_usage_final = 0;
+result.memory_usage = 0;
 result.peak_memory_usage = peak_memory_usage;
 end
 
