@@ -1,4 +1,4 @@
-function [path, goal_reached, cost, EXPAND] = a_star(map, start, goal)
+function result = a_star(map, start, goal)
 % @file: a_star.m
 % @breif: A* motion planning
 % @paper: A Formal Basis for the heuristic Determination of Minimum Cost Paths
@@ -11,6 +11,8 @@ function [path, goal_reached, cost, EXPAND] = a_star(map, start, goal)
 %   =====================
 %
 
+addpath(genpath("../utils/custom_functions"));
+
 % initialize
 OPEN = [];
 CLOSED = [];
@@ -18,6 +20,11 @@ EXPAND = [];
 
 cost = 0;
 goal_reached = false;
+nodes_explored = 0;
+neighbors_visited = 0;
+memory_usage = 0;
+
+
 motion = [-1, -1, sqrt(2); ...
     0, -1, 1; ...
     1, -1, sqrt(2); ...
@@ -32,6 +39,12 @@ motion_num = size(motion, 1);
 node_s = [start, 0, h(start, goal), start];
 OPEN = [OPEN; node_s];
 
+% Reset peak memory tracking at the start of each run
+track_peak_memory([], [], [], [], true);  % Reset the persistent memory tracking
+
+% Start timing the computation
+tic;
+
 while ~isempty(OPEN)
     % pop
     f = OPEN(:, 3) + OPEN(:, 4);
@@ -43,7 +56,7 @@ while ~isempty(OPEN)
     if loc_list(cur_node, CLOSED, [1, 2])
         continue
     end
-
+    
     % update expand zone
     if ~loc_list(cur_node, EXPAND, [1, 2])
         EXPAND = [EXPAND; cur_node(1:2)];
@@ -66,6 +79,8 @@ while ~isempty(OPEN)
             0, ...
             cur_node(1), cur_node(2)];
         node_n(4) = h(node_n(1:2), goal);
+        
+        neighbors_visited = neighbors_visited + 1;  % Track neighbor visits
 
         % exists in CLOSED set
         if loc_list(node_n, CLOSED, [1, 2])
@@ -81,11 +96,52 @@ while ~isempty(OPEN)
         OPEN = [OPEN; node_n];
     end
     CLOSED = [cur_node; CLOSED];
+    nodes_explored = nodes_explored + 1;  % Track node exploration
+    % Track peak memory usage dynamically
+    peak_memory_usage = track_peak_memory(OPEN, CLOSED, map, EXPAND, false);
 end
+
+
+
+% Stop timing the computation
+computation_time = toc;
 
 % extract path
 path = extract_path(CLOSED, start);
+
+% Calculate path length as the number of steps
+path_length_steps = calculate_blocks_traversed(path);
+
+% Calculate Euclidean path length (optional)
+path_length_euclidean = 0;
+for i = 2:size(path, 1)
+    dx = abs(path(i, 1) - path(i-1, 1));
+    dy = abs(path(i, 2) - path(i-1, 2));
+    if dx == 1 && dy == 1
+        path_length_euclidean = path_length_euclidean + sqrt(2);
+    else
+        path_length_euclidean = path_length_euclidean + 1;
+    end
 end
+path_length_euclidean = round(path_length_euclidean, 3);  % Round for precision
+
+% Create a struct to return the results
+result.path = path;
+result.flag = goal_reached;
+result.cost = cost;
+result.expand = EXPAND;
+result.computation_time = computation_time;
+result.path_length_steps = path_length_steps;
+result.path_length_euclidean = path_length_euclidean;
+result.nodes_explored = nodes_explored;
+result.neighbors_visited = neighbors_visited;
+result.memory_usage_initial = 0;
+result.memory_usage_final = 0;
+result.memory_usage = 0;
+result.peak_memory_usage = peak_memory_usage;
+
+end
+
 
 %%
 function h_val = h(node, goal)
